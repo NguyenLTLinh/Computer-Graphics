@@ -1,6 +1,6 @@
-# Cau Hinh Visual Studio Thu Cong
+# Manual Visual Studio Setup
 
-Neu khong dung CMake, tao project Console App C++ trong Visual Studio va them cac duong dan sau.
+If you are not using CMake, create a C++ Console App project in Visual Studio and add the following paths and linker settings.
 
 ## Include Directories
 
@@ -36,7 +36,7 @@ _CRT_SECURE_NO_WARNINGS
 
 ## Runtime Assets
 
-Dat working directory ve `$(ProjectDir)` de chuong trinh doc duoc:
+Set the working directory to `$(ProjectDir)` so the application can load:
 
 ```text
 assets/shaders/*.vert

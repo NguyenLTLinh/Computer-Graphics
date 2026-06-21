@@ -1,8 +1,8 @@
 # libs
 
-Thu muc nay danh cho cach cau hinh Visual Studio thu cong khi khong dung vcpkg/CMake.
+This directory is intended for manual Visual Studio configuration when you are not using vcpkg or CMake package discovery.
 
-Khuyen nghi bo tri:
+Recommended layout:
 
 ```text
 libs/
@@ -18,10 +18,10 @@ libs/
     stb_image.h
 ```
 
-Neu dung vcpkg, khong can copy binary vao day. Hay cai dependencies:
+If you use vcpkg, you do not need to copy binary dependencies into this directory. Install the dependencies with:
 
 ```powershell
 vcpkg install glfw3 glew glm stb
 ```
 
-Sau do cau hinh CMake voi `CMAKE_TOOLCHAIN_FILE` cua vcpkg.
+Then configure CMake with the vcpkg `CMAKE_TOOLCHAIN_FILE`.
