@@ -1,16 +1,16 @@
-# The Sunken Capital
+# Computer-Graphics: The Sunken Capital
 
-Khung dự án C++17/OpenGL Core Profile 3.3 cho cảnh "Thành phố bị chìm". Project tập trung vào kiến trúc OOP, indexed mesh rendering, camera tự do, Phong lighting có attenuation, texture mipmaps và animation dưới nước.
+Khung dự án C++17/OpenGL Core Profile 3.3 cho cảnh "The Sunken Capital" - thành phố cổ bị chìm dưới đại dương. Project tập trung vào kiến trúc OOP, indexed mesh rendering, camera tự do, Phong lighting có attenuation, texture mipmaps và animation dưới nước.
 
 ## Cấu Trúc Thư Mục
 
 ```text
 TheSunkenCapital/
-  src/                 File .cpp
-  include/             File .h
-  libs/                Nơi đặt GLFW, GLEW, GLM, stb_image nếu cấu hình thủ công
-  assets/shaders/      Vertex shader và fragment shader GLSL 330
-  assets/textures/     Texture đá cổ, rêu phong, san hô
+  src/                 Chứa các file .cpp
+  include/             Chứa các file .h
+  libs/                Chứa hoặc mô tả cách đặt GLFW, GLEW, GLM, stb_image
+  assets/shaders/      Chứa file .vert và .frag shader
+  assets/textures/     Chứa texture đá cổ, rêu phong, san hô
   CMakeLists.txt
   VisualStudio_Setup.md
 ```
@@ -20,11 +20,11 @@ TheSunkenCapital/
 - CMake 3.20+
 - Trình biên dịch C++17
 - OpenGL 3.3+
-- Dependencies qua vcpkg hoặc package manager tương đương:
-  - glfw3
-  - glew
-  - glm
-  - stb
+- Dependencies:
+  - GLFW
+  - GLEW
+  - GLM
+  - stb_image
 
 Ví dụ với vcpkg:
 
@@ -48,7 +48,7 @@ Nếu cấu hình Visual Studio thủ công, xem `VisualStudio_Setup.md`.
 ## Kiến Trúc
 
 - `Mesh`: quản lý VAO/VBO/IBO theo RAII, dùng `glDrawElements` để tránh lặp dữ liệu đỉnh.
-- `Shader`: nạp, biên dịch, link GLSL 330 và set uniform type-safe ở mức cơ bản.
+- `Shader`: nạp, biên dịch, link GLSL 330 và set uniform.
 - `Camera`: view matrix bằng `glm::lookAt`, điều hướng WASD/chuột, tốc độ độc lập phần cứng nhờ delta time.
 - `Texture`: load ảnh bằng `stb_image`, tạo mipmaps, sampling trilinear và anisotropic filtering nếu GPU hỗ trợ.
 - `SceneFactory`: tạo hình học mẫu cho khối đá, cột cổ, rong biển và bọt khí.
@@ -61,7 +61,6 @@ Nếu cấu hình Visual Studio thủ công, xem `VisualStudio_Setup.md`.
 
 ## Gợi Ý Mở Rộng
 
-- Thay texture màu đặc bằng ảnh đá rêu/san hô thật, rồi truyền path vào `Texture`.
 - Thêm normal map/tangent space để bề mặt đá có chiều sâu hơn.
 - Dùng instancing cho nhiều cột, rong biển hoặc bọt khí nếu scene lớn.
 - Thêm framebuffer post-processing: caustics, bloom nhẹ, volumetric shafts và color grading xanh lục.
