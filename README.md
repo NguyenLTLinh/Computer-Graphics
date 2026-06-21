@@ -1,24 +1,24 @@
 # Computer-Graphics: The Sunken Capital
 
-Khung dự án C++17/OpenGL Core Profile 3.3 cho cảnh "The Sunken Capital" - thành phố cổ bị chìm dưới đại dương. Project tập trung vào kiến trúc OOP, indexed mesh rendering, camera tự do, Phong lighting có attenuation, texture mipmaps và animation dưới nước.
+A C++17/OpenGL Core Profile 3.3 project framework for **The Sunken Capital**, an ancient city submerged beneath the ocean. The project focuses on object-oriented architecture, indexed mesh rendering, free-flight camera navigation, Phong lighting with distance attenuation, mipmapped texture mapping, and underwater animation.
 
-## Cấu Trúc Thư Mục
+## Project Structure
 
 ```text
 TheSunkenCapital/
-  src/                 Chứa các file .cpp
-  include/             Chứa các file .h
-  libs/                Chứa hoặc mô tả cách đặt GLFW, GLEW, GLM, stb_image
-  assets/shaders/      Chứa file .vert và .frag shader
-  assets/textures/     Chứa texture đá cổ, rêu phong, san hô
+  src/                 C++ source files
+  include/             Header files
+  libs/                Library placement notes for GLFW, GLEW, GLM, and stb_image
+  assets/shaders/      GLSL .vert and .frag shader files
+  assets/textures/     Ancient stone, moss, and coral-style texture assets
   CMakeLists.txt
   VisualStudio_Setup.md
 ```
 
-## Yêu Cầu
+## Requirements
 
 - CMake 3.20+
-- Trình biên dịch C++17
+- A C++17 compiler
 - OpenGL 3.3+
 - Dependencies:
   - GLFW
@@ -26,7 +26,7 @@ TheSunkenCapital/
   - GLM
   - stb_image
 
-Ví dụ với vcpkg:
+Example using vcpkg:
 
 ```powershell
 vcpkg install glfw3 glew glm stb
@@ -35,32 +35,32 @@ cmake --build build --config Release
 .\build\Release\TheSunkenCapital.exe
 ```
 
-Nếu cấu hình Visual Studio thủ công, xem `VisualStudio_Setup.md`.
+For a manual Visual Studio setup, see `VisualStudio_Setup.md`.
 
-## Điều Khiển
+## Controls
 
-- `W`, `A`, `S`, `D`: di chuyển tự do trong cảnh
-- `Space`: nổi lên
-- `Left Ctrl`: lặn xuống
-- Chuột: xoay camera bằng yaw/pitch
-- `Esc`: thoát
+- `W`, `A`, `S`, `D`: move through the scene
+- `Space`: move upward
+- `Left Ctrl`: move downward
+- Mouse: rotate the camera using yaw and pitch
+- `Esc`: exit
 
-## Kiến Trúc
+## Architecture
 
-- `Mesh`: quản lý VAO/VBO/IBO theo RAII, dùng `glDrawElements` để tránh lặp dữ liệu đỉnh.
-- `Shader`: nạp, biên dịch, link GLSL 330 và set uniform.
-- `Camera`: view matrix bằng `glm::lookAt`, điều hướng WASD/chuột, tốc độ độc lập phần cứng nhờ delta time.
-- `Texture`: load ảnh bằng `stb_image`, tạo mipmaps, sampling trilinear và anisotropic filtering nếu GPU hỗ trợ.
-- `SceneFactory`: tạo hình học mẫu cho khối đá, cột cổ, rong biển và bọt khí.
+- `Mesh`: manages VAO/VBO/IBO resources with RAII and renders with `glDrawElements` to avoid duplicated vertex data.
+- `Shader`: loads, compiles, links GLSL 330 programs, and uploads uniforms.
+- `Camera`: builds the view matrix with `glm::lookAt`, supports WASD/mouse navigation, and uses delta time for hardware-independent movement.
+- `Texture`: loads images with `stb_image`, generates mipmaps, uses trilinear sampling, and enables anisotropic filtering when supported.
+- `SceneFactory`: creates sample geometry for stone blocks, ancient columns, seaweed blades, and bubbles.
 
-## Shader
+## Shaders
 
-- `assets/shaders/ruin.vert` và `assets/shaders/ruin.frag`: model/view/projection, normal matrix, Phong reflection, point light attenuation, fog màu xanh thẳm.
-- `assets/shaders/seaweed.vert` và `assets/shaders/seaweed.frag`: chuyển động rong biển theo arcs, follow-through và overlap bằng sóng lệch pha theo chiều cao vertex.
-- `assets/shaders/bubble.vert` và `assets/shaders/bubble.frag`: bọt khí dạng billboard quad đơn giản, alpha rim và dao động nổi.
+- `assets/shaders/ruin.vert` and `assets/shaders/ruin.frag`: model/view/projection transforms, normal matrix handling, Phong reflection, point-light attenuation, and deep-water fog.
+- `assets/shaders/seaweed.vert` and `assets/shaders/seaweed.frag`: seaweed animation using arcs, follow-through, and overlap through height-based phase-shifted sine waves.
+- `assets/shaders/bubble.vert` and `assets/shaders/bubble.frag`: simple bubble billboard quads with rim alpha and soft floating motion.
 
-## Gợi Ý Mở Rộng
+## Extension Ideas
 
-- Thêm normal map/tangent space để bề mặt đá có chiều sâu hơn.
-- Dùng instancing cho nhiều cột, rong biển hoặc bọt khí nếu scene lớn.
-- Thêm framebuffer post-processing: caustics, bloom nhẹ, volumetric shafts và color grading xanh lục.
+- Add normal mapping and tangent-space lighting for deeper stone surface detail.
+- Use instanced rendering for large groups of columns, seaweed, or bubbles.
+- Add framebuffer post-processing such as caustics, subtle bloom, volumetric light shafts, and underwater color grading.
