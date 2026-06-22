@@ -1,44 +1,85 @@
 #pragma once
 
-#include <glm/glm.hpp>
+// ============================================================
+// Camera.h - Camera góc nhìn tự do với Euler Angles
+// Điều hướng WASD + chuột, sử dụng glm::lookAt
+// ============================================================
 
+#include "Common.h"
+
+// Enum các hướng di chuyển (tách biệt khỏi phím cụ thể)
 enum class CameraMovement {
-    Forward,
-    Backward,
-    Left,
-    Right,
-    Up,
-    Down
+    FORWARD,
+    BACKWARD,
+    LEFT,
+    RIGHT,
+    UP,    // Q - bay lên (hữu ích khi quan sát dưới nước)
+    DOWN   // E - lặn xuống
 };
 
 class Camera {
 public:
-    explicit Camera(glm::vec3 position = glm::vec3(0.0f, 2.0f, 8.0f));
+    // --------------------------------------------------------
+    // Thuộc tính vị trí và định hướng
+    // --------------------------------------------------------
+    glm::vec3 position;
+    glm::vec3 front;     // Vector hướng nhìn (tính từ Yaw/Pitch)
+    glm::vec3 up;        // Vector "lên" của camera (world up mặc định)
+    glm::vec3 right;     // Vector "phải" của camera
 
-    glm::mat4 viewMatrix() const;
+    // --------------------------------------------------------
+    // Góc Euler
+    // --------------------------------------------------------
+    float yaw;    // Xoay ngang (độ) - mặc định -90 (nhìn về -Z)
+    float pitch;  // Xoay dọc (độ) - giới hạn [-89, 89] tránh gimbal lock
 
+    // --------------------------------------------------------
+    // Cài đặt di chuyển
+    // --------------------------------------------------------
+    float moveSpeed;
+    float mouseSensitivity;
+    float fov; // Field of View (degrees)
+
+    // --------------------------------------------------------
+    // Constructor: Vị trí ban đầu nhìn vào trung tâm thành phố
+    // --------------------------------------------------------
+    explicit Camera(
+        glm::vec3 startPosition = glm::vec3(0.0f, 8.0f, 30.0f),
+        float     startYaw      = -90.0f,
+        float     startPitch    = -10.0f
+    );
+
+    // --------------------------------------------------------
+    // Lấy ma trận View (dùng glm::lookAt)
+    // Gọi mỗi frame để cập nhật góc nhìn
+    // --------------------------------------------------------
+    glm::mat4 getViewMatrix() const;
+
+    // --------------------------------------------------------
+    // Lấy ma trận Projection
+    // --------------------------------------------------------
+    glm::mat4 getProjectionMatrix(float aspectRatio) const;
+
+    // --------------------------------------------------------
+    // Xử lý input bàn phím (gọi trong game loop với deltaTime)
+    // deltaTime đảm bảo tốc độ di chuyển nhất quán trên mọi máy
+    // --------------------------------------------------------
     void processKeyboard(CameraMovement direction, float deltaTime);
-    void processMouse(float xOffset, float yOffset, bool constrainPitch = true);
 
-    glm::vec3 position() const { return position_; }
-    glm::vec3 front() const { return front_; }
+    // --------------------------------------------------------
+    // Xử lý input chuột (xOffest, yOffset là pixels đã di chuyển)
+    // --------------------------------------------------------
+    void processMouseMovement(float xOffset, float yOffset,
+                              bool constrainPitch = true);
 
-    float zoom() const { return zoom_; }
-    float yaw() const { return yaw_; }
-    float pitch() const { return pitch_; }
+    // Zoom bằng scroll wheel
+    void processMouseScroll(float yOffset);
+
+    // Getter vị trí hiện tại
+    const glm::vec3& getPosition() const { return position; }
 
 private:
-    glm::vec3 position_;
-    glm::vec3 front_{0.0f, 0.0f, -1.0f};
-    glm::vec3 up_{0.0f, 1.0f, 0.0f};
-    glm::vec3 right_{1.0f, 0.0f, 0.0f};
-    glm::vec3 worldUp_{0.0f, 1.0f, 0.0f};
-
-    float yaw_{-90.0f};
-    float pitch_{-8.0f};
-    float movementSpeed_{4.2f};
-    float mouseSensitivity_{0.08f};
-    float zoom_{45.0f};
-
-    void updateVectors();
+    // Cập nhật lại vector front, right, up từ Yaw và Pitch
+    // Gọi sau mỗi lần thay đổi góc Euler
+    void updateCameraVectors();
 };
