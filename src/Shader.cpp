@@ -1,111 +1,149 @@
+// ============================================================
+// Shader.cpp - Triển khai class Shader
+// ============================================================
+
 #include "Shader.h"
 
-#include <glm/gtc/type_ptr.hpp>
-
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <utility>
-#include <vector>
-
+// ============================================================
+// Constructor: Đọc file, biên dịch và liên kết shader program
+// ============================================================
 Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath) {
-    const std::string vertexSource = readFile(vertexPath);
-    const std::string fragmentSource = readFile(fragmentPath);
+    // 1. Đọc source code từ file
+    std::string vertSrc = readFile(vertexPath);
+    std::string fragSrc = readFile(fragmentPath);
 
-    const GLuint vertexShader = compile(GL_VERTEX_SHADER, vertexSource, vertexPath);
-    const GLuint fragmentShader = compile(GL_FRAGMENT_SHADER, fragmentSource, fragmentPath);
+    // 2. Biên dịch từng shader
+    GLuint vertShader = compileShader(vertSrc, GL_VERTEX_SHADER);
+    GLuint fragShader = compileShader(fragSrc, GL_FRAGMENT_SHADER);
 
-    programId_ = glCreateProgram();
-    glAttachShader(programId_, vertexShader);
-    glAttachShader(programId_, fragmentShader);
-    glLinkProgram(programId_);
+    // 3. Liên kết thành shader program
+    programID = glCreateProgram();
+    glAttachShader(programID, vertShader);
+    glAttachShader(programID, fragShader);
+    glLinkProgram(programID);
 
-    GLint success = GL_FALSE;
-    glGetProgramiv(programId_, GL_LINK_STATUS, &success);
+    // Kiểm tra lỗi liên kết
+    GLint success;
+    glGetProgramiv(programID, GL_LINK_STATUS, &success);
     if (!success) {
-        GLint logLength = 0;
-        glGetProgramiv(programId_, GL_INFO_LOG_LENGTH, &logLength);
-        std::vector<char> log(static_cast<size_t>(logLength));
-        glGetProgramInfoLog(programId_, logLength, nullptr, log.data());
-        throw std::runtime_error("Shader link failed: " + std::string(log.begin(), log.end()));
+        char log[1024];
+        glGetProgramInfoLog(programID, 1024, nullptr, log);
+        throw std::runtime_error("[Shader] Link error in '" + vertexPath + "':\n" + log);
     }
 
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    // 4. Xóa shader đơn lẻ (đã liên kết vào program, không cần nữa)
+    glDeleteShader(vertShader);
+    glDeleteShader(fragShader);
+
+    std::cout << "[Shader] Program compiled successfully: "
+              << vertexPath << " + " << fragmentPath << "\n";
 }
 
 Shader::~Shader() {
-    if (programId_ != 0) {
-        glDeleteProgram(programId_);
+    if (programID != 0) {
+        glDeleteProgram(programID);
+        programID = 0;
     }
-}
-
-Shader::Shader(Shader&& other) noexcept : programId_(std::exchange(other.programId_, 0)) {}
-
-Shader& Shader::operator=(Shader&& other) noexcept {
-    if (this != &other) {
-        if (programId_ != 0) {
-            glDeleteProgram(programId_);
-        }
-        programId_ = std::exchange(other.programId_, 0);
-    }
-    return *this;
 }
 
 void Shader::use() const {
-    glUseProgram(programId_);
+    glUseProgram(programID);
 }
 
-void Shader::setBool(const std::string& name, bool value) const {
-    glUniform1i(uniformLocation(name), static_cast<int>(value));
-}
-
-void Shader::setInt(const std::string& name, int value) const {
-    glUniform1i(uniformLocation(name), value);
-}
-
-void Shader::setFloat(const std::string& name, float value) const {
-    glUniform1f(uniformLocation(name), value);
-}
-
-void Shader::setVec3(const std::string& name, const glm::vec3& value) const {
-    glUniform3fv(uniformLocation(name), 1, glm::value_ptr(value));
-}
-
-void Shader::setMat4(const std::string& name, const glm::mat4& value) const {
-    glUniformMatrix4fv(uniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
-}
-
-std::string Shader::readFile(const std::string& path) {
-    std::ifstream file(path, std::ios::in);
-    if (!file) {
-        throw std::runtime_error("Cannot open shader file: " + path);
+// ============================================================
+// Đọc nội dung file shader từ đĩa
+// ============================================================
+std::string Shader::readFile(const std::string& path) const {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("[Shader] Cannot open file: " + path);
     }
-
-    std::ostringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
+    std::stringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
 }
 
-GLuint Shader::compile(GLenum type, const std::string& source, const std::string& debugName) {
-    const GLuint shader = glCreateShader(type);
-    const char* sourcePtr = source.c_str();
-    glShaderSource(shader, 1, &sourcePtr, nullptr);
+// ============================================================
+// Biên dịch một shader (vertex hoặc fragment)
+// ============================================================
+GLuint Shader::compileShader(const std::string& source, GLenum type) const {
+    GLuint shader = glCreateShader(type);
+    const char* src = source.c_str();
+    glShaderSource(shader, 1, &src, nullptr);
     glCompileShader(shader);
 
-    GLint success = GL_FALSE;
+    // Kiểm tra lỗi biên dịch
+    GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
-        GLint logLength = 0;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-        std::vector<char> log(static_cast<size_t>(logLength));
-        glGetShaderInfoLog(shader, logLength, nullptr, log.data());
-        throw std::runtime_error("Shader compile failed [" + debugName + "]: " + std::string(log.begin(), log.end()));
+        char log[1024];
+        glGetShaderInfoLog(shader, 1024, nullptr, log);
+        const char* typeName = (type == GL_VERTEX_SHADER) ? "VERTEX" : "FRAGMENT";
+        throw std::runtime_error(
+            std::string("[Shader] Compile error in ") + typeName + " shader:\n" + log
+        );
     }
-
     return shader;
 }
 
-GLint Shader::uniformLocation(const std::string& name) const {
-    return glGetUniformLocation(programId_, name.c_str());
+// ============================================================
+// Lấy vị trí uniform (với cảnh báo nếu không tìm thấy)
+// ============================================================
+GLint Shader::getUniformLocation(const std::string& name) const {
+    GLint loc = glGetUniformLocation(programID, name.c_str());
+#ifdef _DEBUG
+    if (loc == -1) {
+        std::cerr << "[Shader] WARNING: Uniform '" << name << "' not found or unused.\n";
+    }
+#endif
+    return loc;
+}
+
+// ============================================================
+// Các hàm set Uniform
+// ============================================================
+void Shader::setInt(const std::string& name, int value) const {
+    glUniform1i(getUniformLocation(name), value);
+}
+void Shader::setFloat(const std::string& name, float value) const {
+    glUniform1f(getUniformLocation(name), value);
+}
+void Shader::setBool(const std::string& name, bool value) const {
+    glUniform1i(getUniformLocation(name), (int)value);
+}
+void Shader::setVec2(const std::string& name, const glm::vec2& v) const {
+    glUniform2fv(getUniformLocation(name), 1, glm::value_ptr(v));
+}
+void Shader::setVec3(const std::string& name, const glm::vec3& v) const {
+    glUniform3fv(getUniformLocation(name), 1, glm::value_ptr(v));
+}
+void Shader::setVec4(const std::string& name, const glm::vec4& v) const {
+    glUniform4fv(getUniformLocation(name), 1, glm::value_ptr(v));
+}
+void Shader::setMat3(const std::string& name, const glm::mat3& m) const {
+    glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, glm::value_ptr(m));
+}
+void Shader::setMat4(const std::string& name, const glm::mat4& m) const {
+    glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, glm::value_ptr(m));
+}
+
+// ============================================================
+// Truyền Point Light vào shader theo prefix (vd: "lights[0]")
+// ============================================================
+void Shader::setPointLight(const std::string& prefix, const PointLight& light) const {
+    setVec3 (prefix + ".position",  light.position);
+    setVec3 (prefix + ".color",     light.color);
+    setFloat(prefix + ".intensity", light.intensity);
+    setFloat(prefix + ".constant",  light.constant);
+    setFloat(prefix + ".linear",    light.linear);
+    setFloat(prefix + ".quadratic", light.quadratic);
+}
+
+// ============================================================
+// Truyền Directional Light (ánh sáng từ mặt nước)
+// ============================================================
+void Shader::setDirectionalLight(const std::string& prefix, const DirectionalLight& light) const {
+    setVec3 (prefix + ".direction", light.direction);
+    setVec3 (prefix + ".color",     light.color);
+    setFloat(prefix + ".intensity", light.intensity);
 }
