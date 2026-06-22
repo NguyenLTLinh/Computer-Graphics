@@ -1,114 +1,134 @@
-#include "Texture.h"
+// ============================================================
+// Texture.cpp - Nạp và quản lý OpenGL Textures với stb_image
+// ============================================================
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "stb_image.h"
+#include "Texture.h"
 
-#include <algorithm>
-#include <stdexcept>
-#include <utility>
-
-#ifndef GL_TEXTURE_MAX_ANISOTROPY_EXT
-#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
-#endif
-
-#ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT
-#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
-#endif
-
-Texture::Texture(const std::string& path, bool srgb) {
-    createFromFile(path, srgb);
+// ============================================================
+// Constructor: Nạp texture từ file
+// ============================================================
+Texture::Texture(const std::string& imagePath,
+                 GLenum wrapMode,
+                 GLenum filterMin,
+                 GLenum filterMag)
+    : filePath(imagePath)
+{
+    loadFromFile(imagePath, wrapMode, filterMin, filterMag);
 }
 
-Texture::Texture(const glm::vec3& color, bool srgb) {
-    createSolid(color, srgb);
+// ============================================================
+// Tạo texture màu đơn sắc (fallback khi không có file)
+// ============================================================
+Texture Texture::createSolid(glm::vec4 color) {
+    Texture tex;
+    tex.width = tex.height = 1;
+    tex.channels = 4;
+    tex.filePath = "solid_color";
+
+    unsigned char pixel[4] = {
+        static_cast<unsigned char>(color.r * 255),
+        static_cast<unsigned char>(color.g * 255),
+        static_cast<unsigned char>(color.b * 255),
+        static_cast<unsigned char>(color.a * 255)
+    };
+
+    glGenTextures(1, &tex.id);
+    glBindTexture(GL_TEXTURE_2D, tex.id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return tex;
 }
 
 Texture::~Texture() {
-    release();
-}
-
-Texture::Texture(Texture&& other) noexcept : id_(std::exchange(other.id_, 0)) {}
-
-Texture& Texture::operator=(Texture&& other) noexcept {
-    if (this != &other) {
-        release();
-        id_ = std::exchange(other.id_, 0);
+    if (id != 0) {
+        glDeleteTextures(1, &id);
+        id = 0;
     }
-    return *this;
 }
 
-void Texture::bind(GLuint unit) const {
-    glActiveTexture(GL_TEXTURE0 + unit);
-    glBindTexture(GL_TEXTURE_2D, id_);
+// ============================================================
+// Bind texture vào một texture unit
+// Slot 0 = GL_TEXTURE0 (diffuse), Slot 1 = GL_TEXTURE1 (emissive)
+// ============================================================
+void Texture::bind(GLuint slot) const {
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_2D, id);
 }
 
-void Texture::createFromFile(const std::string& path, bool srgb) {
+void Texture::unbind() const {
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+// ============================================================
+// Nạp ảnh từ file và upload lên GPU
+// ============================================================
+void Texture::loadFromFile(const std::string& path, GLenum wrap,
+                           GLenum filterMin, GLenum filterMag) {
+    // stb_image: flip theo trục Y để khớp với UV convention của OpenGL
+    // OpenGL: UV(0,0) = góc dưới-trái. stb: (0,0) = góc trên-trái
     stbi_set_flip_vertically_on_load(true);
 
-    int width = 0;
-    int height = 0;
-    int channels = 0;
+    // Nạp ảnh từ đĩa
     unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
-    if (data == nullptr) {
-        throw std::runtime_error("Cannot load texture: " + path);
+
+    if (!data) {
+        std::cerr << "[Texture] WARN: Failed to load '" << path
+                  << "'. Using fallback white texture.\n";
+        // Tạo texture trắng fallback thay vì crash
+        *this = Texture::createSolid(glm::vec4(1.0f));
+        return;
     }
 
-    GLenum dataFormat = GL_RGB;
-    GLenum internalFormat = srgb ? GL_SRGB8 : GL_RGB8;
-    if (channels == 4) {
-        dataFormat = GL_RGBA;
-        internalFormat = srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
-    } else if (channels == 1) {
-        dataFormat = GL_RED;
-        internalFormat = GL_R8;
+    // Xác định format dựa trên số channels
+    GLenum internalFmt, pixelFmt;
+    if (channels == 1) {
+        internalFmt = pixelFmt = GL_RED;
+    } else if (channels == 3) {
+        internalFmt = GL_RGB;
+        pixelFmt    = GL_RGB;
+    } else { // channels == 4
+        internalFmt = GL_RGBA;
+        pixelFmt    = GL_RGBA;
     }
 
-    glGenTextures(1, &id_);
-    glBindTexture(GL_TEXTURE_2D, id_);
-    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, GL_UNSIGNED_BYTE, data);
+    // Upload lên GPU
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFmt, width, height, 0,
+                 pixelFmt, GL_UNSIGNED_BYTE, data);
+
+    // Tạo mipmaps tự động: giảm aliasing khi texture ở xa camera
+    // Các mức mipmap: 1x1, 2x2, 4x4, 8x8, ... đến kích thước gốc
     glGenerateMipmap(GL_TEXTURE_2D);
-    configureSampler();
 
-    stbi_image_free(data);
-}
+    // Thiết lập chế độ wrap (GL_REPEAT cho tile texture đá cổ)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
-void Texture::createSolid(const glm::vec3& color, bool srgb) {
-    const auto channel = [](float value) {
-        return static_cast<unsigned char>(std::clamp(value, 0.0f, 1.0f) * 255.0f);
-    };
+    // Filter khi thu nhỏ: dùng mipmap (GL_LINEAR_MIPMAP_LINEAR = trilinear)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterMin);
 
-    const unsigned char pixel[] = {
-        channel(color.r),
-        channel(color.g),
-        channel(color.b),
-        255
-    };
+    // Filter khi phóng to: GL_LINEAR cho smooth
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filterMag);
 
-    glGenTextures(1, &id_);
-    glBindTexture(GL_TEXTURE_2D, id_);
-    glTexImage2D(GL_TEXTURE_2D, 0, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    configureSampler();
-}
-
-void Texture::configureSampler() const {
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-#ifdef GLEW_EXT_texture_filter_anisotropic
-    if (GLEW_EXT_texture_filter_anisotropic) {
-        GLfloat maxAnisotropy = 1.0f;
-        glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, std::min(maxAnisotropy, 8.0f));
+    // Anisotropic filtering nếu extension có sẵn (giảm mờ ở góc nghiêng)
+    float maxAniso = 1.0f;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAniso);
+    if (maxAniso > 1.0f) {
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT,
+                        std::min(maxAniso, 8.0f)); // Tối đa 8x
     }
-#endif
-}
 
-void Texture::release() {
-    if (id_ != 0) {
-        glDeleteTextures(1, &id_);
-        id_ = 0;
-    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(data); // Giải phóng bộ nhớ CPU
+
+    std::cout << "[Texture] Loaded: " << path
+              << " (" << width << "x" << height << ", " << channels << "ch)\n";
 }
